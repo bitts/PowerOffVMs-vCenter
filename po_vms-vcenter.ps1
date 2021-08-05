@@ -15,6 +15,25 @@
 #
 #########################################################################################################
 
+
+##########################################################################################################
+#SCRIPT PARA SHUTDOWN DE VIRTUAL MACHINES NO VCENTER
+#
+#USO:
+#CRIAR UM ARQUIVO TXT NO FORMATO ABAIXO COM O NOME DE VMLIST.TXT
+#
+#Maquina
+#SGO_MV_WIN10_192
+#CCOP-WIN14
+#
+# defina as variáveis abaixo
+# 
+#
+#VERSÃO 1.0
+#FALTA MELHORAR A PARTE DE LOG....
+#########################################################################################################
+
+
 $vmUser = "1cta-bittencourt" 
 $vmPswd = "" 
 $vmCenter = "vsphere.qgcms.local" 
@@ -33,7 +52,7 @@ Function Load-PowerCLI (){
         try {
     		Import-Module -Name $PCLI
         } Catch {
-		  	Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
+		  	Write-Host "Ocorreu um problema ao carregar o módulo Powershell. Não é possível continuar."
 	  		Exit 1
 		}
     } elseIf ($PCLIver -ge "6") {
@@ -42,7 +61,7 @@ Function Load-PowerCLI (){
             try {
 		  		Import-Module $PCLI
             } Catch {
-				Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
+				Write-Host "Ocorreu um problema ao carregar o módulo Powershell. Não é possível continuar."
 				Exit 1
             }
         }
@@ -52,12 +71,12 @@ Function Load-PowerCLI (){
             Try {
                 Add-PSSnapin $PCLI
             } Catch {
-                Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
+                Write-Host "Ocorreu um problema ao carregar o módulo Powershell. Não é possível continuar."
                 Exit 1
             }
         }
     } else {
-        Write-Host "This version of PowerCLI seems to be unsupported. Please upgrade to the latest version of PowerCLI and try again."
+        Write-Host "Esta versão do PowerCLI parece não ser compatível. Atualize para a versão mais recente do PowerCLI e tente novamente."
     }
 }
 
@@ -112,6 +131,7 @@ function PowerOffListVM
 			FolderId
 		} | foreach {
 			#Desligando maquina
+            Write-Host "Propriedades da maquina: $($_.Datacenter), CLUSTER: [$($_.Cluster)], nCPU: [$($_.NumCpu)], Memory: [$($_.MemoryGB)], ProvisionedSpaceGB: [$($_.ProvisionedSpaceGB)], Path: [$($_.Path)]"
             PowerOFFVM -machineName $($_.Name)
 		}
 
@@ -159,7 +179,7 @@ Function PowerOFFVM{
 			   Write-Warning "Maquina sem VMTools instalado."
 			   
 			   #Commando de Shutdown...                 
-	  	   Shutdown-VMGuest $machineName -Confirm:$false
+			   Shutdown-VMGuest $machineName -Confirm:$false
 
 			   Write-Host "Executando shutdown da VM ++ $machineName ++ via VMware Tools. Aguardando... (30s)"
 			   sleep 30
@@ -170,7 +190,7 @@ Function PowerOFFVM{
 				Write-Host "Processando VM: ++ $machineName ++ ..."
 
 				#Commando de Shutdown...          
-		    Stop-VM $machineName -Confirm:$false 
+			    Stop-VM $machineName -Confirm:$false 
 
 				Write-Host "Executando shutdown da VM: ++ $machineName ++ via Force Stop. Aguardando... (30s)"
 				sleep 30        
