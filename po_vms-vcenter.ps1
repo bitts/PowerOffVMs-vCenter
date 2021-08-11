@@ -21,15 +21,16 @@ $vmPswd = ""
 $vmCenter = "vsphere.qgcms.local" 
 $vmList = "C:\Users\Administrator\Documents\vmlist.txt"
 
-$logs = "C:\Users\Administrator\Documents\desligamentoVMs-$($data).txt"
-
 #não modificar
 $data = Get-Date -Format "dd-MM-yyyy"
+
+#não implementado -> <command>  | Out-File $logs
+$logs = "C:\Users\Administrator\Documents\desligamentoVMs-$($data).txt"
 
 Function sendMail{
 	Param
     (
-		 [Parameter(Mandatory=$true, Position=0)]
+	 [Parameter(Mandatory=$true, Position=0)]
          [string] $Subject,
          [Parameter(Mandatory=$true, Position=1)]
          [string] $Body
@@ -44,43 +45,43 @@ Function sendMail{
 
 Function Load-PowerCLI{
 
-    if (Get-Command "*find-module"){
- 		$PCLIver =  (Find-Module "*vmware.powercli").Version.major
-    }
+	if (Get-Command "*find-module"){
+		$PCLIver =  (Find-Module "*vmware.powercli").Version.major
+	}
 	
  	($PCLIver| Out-String).Split(".")[0]
 
  	if ($PCLIver -ge 10){
   		$PCLI = "vmware.powercli"
-        try {
-    		Import-Module -Name $PCLI
-        } Catch {
-		  	Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
-	  		Exit 1
+		try {
+			Import-Module -Name $PCLI
+		} Catch {
+			Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
+			Exit 1
 		}
-    } elseIf ($PCLIver -ge "6") {
+    	} elseIf ($PCLIver -ge "6") {
   		$PCLI = "VMware.VimAutomation.Core"
-        if ((Get-Module -Name $PCLI -ErrorAction SilentlyContinue) -eq $null){
-            try {
-		  		Import-Module $PCLI
-            } Catch {
+		if ((Get-Module -Name $PCLI -ErrorAction SilentlyContinue) -eq $null){
+		    	try {
+				Import-Module $PCLI
+		    	} Catch {
 				Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
 				Exit 1
-            }
-        }
-    } elseIf ($PCLIver -ge "5") {
+		    	}
+        	}
+    	} elseIf ($PCLIver -ge "5") {
   		$PCLI = "VMware.VimAutomation.Core"
-        if ((Get-PSSnapin $PCLI -ErrorAction "SilentlyContinue") -eq $null) {
-            Try {
-                Add-PSSnapin $PCLI
-            } Catch {
-                Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
-                Exit 1
-            }
-        }
-    } else {
-        Write-Host "This version of PowerCLI seems to be unsupported. Please upgrade to the latest version of PowerCLI and try again."
-    }
+		if ((Get-PSSnapin $PCLI -ErrorAction "SilentlyContinue") -eq $null) {
+		    Try {
+			Add-PSSnapin $PCLI
+		    } Catch {
+			Write-Host "There is a problem loading the Powershell module. It is not possible to continue."
+			Exit 1
+		    }
+		}
+    	} else {
+		Write-Host "This version of PowerCLI seems to be unsupported. Please upgrade to the latest version of PowerCLI and try again."
+    	}
 }
 
 function PowerOffListVM{
@@ -108,9 +109,9 @@ function PowerOffListVM{
 		Exit 1
 	}
 
-    try{
+    	try{
 
-		#$vmlistfile = "C:\Users\Administrator\Documents\vmlist.txt"
+	#$vmlistfile = "C:\Users\Administrator\Documents\vmlist.txt"
 
 		Import-Csv $vmlistfile -UseCulture | %{
 		Get-VM -Name $_.Maquina |
@@ -132,10 +133,10 @@ function PowerOffListVM{
 			}},
 			FolderId
 		} | foreach {
-			#Desligando maquina
-            $spaceHD = [math]::Round($($_.ProvisionedSpaceGB),2)
-            Write-Host "Propriedades da maquina: `n - DataCenter: $($_.Datacenter) `n - CLUSTER: [$($_.Cluster)] `n - nCPU: [$($_.NumCpu)] `n - Memory: [$($_.MemoryGB)] `n - ProvisionedSpaceGB: [$($spaceHD)] `n - Path: [$($_.Path)]"
-            PowerOFFVM -machineName $($_.Name)
+		    #Desligando maquina
+		    $spaceHD = [math]::Round($($_.ProvisionedSpaceGB),2)
+		    Write-Host "Propriedades da maquina: `n - DataCenter: $($_.Datacenter) `n - CLUSTER: [$($_.Cluster)] `n - nCPU: [$($_.NumCpu)] `n - Memory: [$($_.MemoryGB)] `n - ProvisionedSpace: [$($spaceHD)GB] `n - Path: [$($_.Path)]"
+		    PowerOFFVM -machineName $($_.Name)
 		}
 
 		Disconnect-VIServer $vCenter -Confirm:$false
@@ -152,10 +153,10 @@ function PowerOffListVM{
 Function PowerOFFVM{
 
 	Param
-    (
-         [Parameter(Mandatory=$true, Position=0)]
-         [string] $machineName
-    )
+	(
+		[Parameter(Mandatory=$true, Position=0)]
+		[string] $machineName
+	)
 
 
 	Try {
@@ -177,27 +178,24 @@ Function PowerOFFVM{
 
 		#If vm is powered on then VMware Tools status is checked  
 		if ($vm.Runtime.PowerState -ne "PoweredOff") {
-            Write-Host "Processando VM: ++ $machineName ++ ..." 
-		   if ($vm.config.Tools.ToolsVersion -ne 0) { 
+            		Write-Host "Processando VM: ++ $machineName ++ ..." 
+		   	if ($vm.config.Tools.ToolsVersion -ne 0) { 
+				Write-Warning "Maquina sem VMTools instalado."
 
-			   Write-Warning "Maquina sem VMTools instalado."
-			   
-			   #Commando de Shutdown...                 
-		#	   Shutdown-VMGuest $machineName -Confirm:$false
+				#Commando de Shutdown...                 
+			   	Shutdown-VMGuest $machineName -Confirm:$false
 
-			   Write-Host "Executando shutdown da VM ++ $machineName ++ via VMware Tools. Aguarde..."
-		   }  
-		   else {  
-
+				Write-Host "Executando shutdown da VM [$machineName] via VMware Tools. Aguarde..."
+			} else {  
 				#Commando de Shutdown...          
-		#	    Stop-VM $machineName -Confirm:$false 
+				Stop-VM $machineName -Confirm:$false 
 
-				Write-Host "Executando shutdown da VM: ++ $machineName ++ via Force Stop. Aguarde..."      
-		   }
-           sleep 5
+				Write-Host "Executando shutdown da VM [$machineName] via Force Stop. Aguarde..."      
+			}
+           		sleep 5
 		} else{
-            Write-Warning "Maquina já encontra-se desligada"
-        }
+            		Write-Warning "Maquina já encontra-se desligada"
+        	}
 	} else {
 		# capture any failure and display it in the error section, then end the script with a return
 		# code of 1 so that CU sees that it was not successful.
@@ -205,7 +203,39 @@ Function PowerOFFVM{
 		Write-Error $Error[1] -ErrorAction Continue
 		Exit 1
 	}
-    Write-Host "----------------------------------------------`n"
+    	Write-Host "----------------------------------------------`n"
+}
+
+Function ShutDownRestantes{
+	$waittime = 60
+	
+	# For each of the powered on VMs with running VM Tools
+	Foreach ($VM in (Get-VMHost | Get-VM | Where {$_.PowerState -eq "poweredOn" -and $_.Guest.State -eq "Running"})){
+		# Shutdown Guest
+		write-host "Shutting down da VM [$VM] sem VMTools instalado..."
+		$VM | Shutdown-VMGuest -Confirm:$false
+	}
+
+	Write-host "Pausing for $waittime seconds to allow VMs to shutdown cleanly"
+	sleep $waittime
+	
+	#Force Poweroff of any VMs still running
+	Foreach ($VM in (Get-VMHost | Get-VM | Where {$_.PowerState -eq "poweredOn"})){
+		  # Power off Guest 
+		  write-host "Powering off [$VM] via Force Stop"
+		  $VM | Stop-VM -Confirm:$false
+	}
+	
+	$Time = (Get-Date).TimeofDay
+	do {
+		# Wait for the VMs to poweroff
+		sleep 1.0
+		$timeleft = $waittime - ($Newtime.seconds)
+		$numvms = (Get-VMHost | Get-VM | Where { $_.PowerState -eq "poweredOn" }).Count
+		Write-host "Waiting for shutdown of $numvms VMs or until $timeleft seconds"
+		$Newtime = (Get-Date).TimeofDay - $Time
+	} until ((@(Get-VMHost | Get-VM | Where { $_.PowerState -eq "poweredOn" }).Count) -eq 0 -or ($Newtime).Seconds -ge $waittime)
+
 }
 
 
@@ -216,6 +246,10 @@ Function ShuttingHosts{
 }
 
 Clear
-#sendMail -Subject "Script de Desligamento de VMS em execução" -Body "[$($data)] O script de desligamento do datacenter foi executado"
+sendMail -Subject "Script de Desligamento de VMS em execução" -Body "[$($data)] O script de desligamento do datacenter foi executado"
 Load-PowerCLI
 PowerOffListVM -VIUser $vmUser -VIPwd $vmPswd -vCenter $vmCenter -vmlistfile $vmList
+sendMail -Subject "Processo de desligando dos Hosts em execução" -Body "[$($data)] O processo de desligamento do DC esta em execução e todas as MV da lista de prioridade tiveram seu processo de desligamento iniciado. Iniciando processo de desligamento das MV e hosts restantes..."
+ShutDownRestantes
+ShuttingHosts
+
