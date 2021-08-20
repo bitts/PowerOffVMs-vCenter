@@ -7,34 +7,34 @@
 #Maquina
 #SGO_MV_WIN10_192
 #CCOP-WIN14
-#
-# defina as variáveis abaixo
 # 
 #
 # 1.0v [05/08/2021] - Desligando maquinas virtuais contidas em arquivo csv
+# 1.1v [20/08/2021] - Adicionado autenticação por relação de confiança.
 #.
 #########################################################################################################
 
+# defina as variáveis abaixo
 #ajustar para funcionamento
 $vmUser = "1cta-bittencourt" 
 $vmPswd = "" 
 $vmCenter = "vsphere.qgcms.local" 
-$vmList = "C:\Users\Administrator\Documents\vmlist.txt"
+$vmList = "C:\Users\Administrator\Documents\shutdown-vms-listademaquinas_AGO2021.txt"
 
 #não modificar
 $data = Get-Date -Format "dd-MM-yyyy"
 
-#não implementado -> <command>  | Out-File $logs ou | Out-File -Append $log
+#não implementado -> <command>  | Out-File $logs
 $logs = "C:\Users\Administrator\Documents\desligamentoVMs-$($data).txt"
 
 Function sendMail{
 	Param
-    (
-	 [Parameter(Mandatory=$true, Position=0)]
-         [string] $Subject,
-         [Parameter(Mandatory=$true, Position=1)]
-         [string] $Body
-    )
+	    (
+		 [Parameter(Mandatory=$true, Position=0)]
+		 [string] $Subject,
+		 [Parameter(Mandatory=$true, Position=1)]
+		 [string] $Body
+	    )
 	$From = "clonesvmware@1cta.eb.mil.br"
 	$To = "sgo@1cta.eb.mil.br"
 	#$Subject = "Script de Desligamento de VMS em execução"
@@ -97,57 +97,56 @@ function PowerOffListVM{
          [string] $vmlistfile
     )
 
-    Try { 
-        Write-Host "Conectando ao vCenter utilizando o usuario [$VIUser]"
-		Connect-VIServer $vCenter -User $VIUser -Password $VIPwd -Force | Out-Null
+    Try {
+        Write-Host "Conectando ao vCenter utilizando utilizando relação de confiança"
+		Connect-VIServer -Server $vCenter | Out-Null
+    } catch [VMware.VimAutomation.ViCore.Types.V1.ErrorHandling.InvalidLogin]{
+        Write-Host "Problema de Permissão"
+    } catch [VMware.VimAutomation.Sdk.Types.V1.ErrorHandling.VimException.ViServerConnectionException]{ 
+        Write-Error "Não foi possível conectar ao servidor vCenter." -ErrorAction Continue
+		Write-Error $Error[1] -ErrorAction Continue
+    } catch {
+        Connect-VIServer $vCenter -User $VIUser -Password $VIPwd -Force | Out-Null
         Write-Host ""
-	} Catch {
-		# capture any failure and display it in the error section, then end the script with a return
-		# code of 1 so that CU sees that it was not successful.
-		Write-Error "Unable to connect to the vCenter server. Please correct and re-run the script." -ErrorAction Continue
-		Write-Error $Error[1] -ErrorAction Continue
-		Exit 1
+    }
+
+    try{
+
+	Import-Csv $vmlistfile -UseCulture | %{
+	Get-VM -Name $_.Maquina |
+	Select Name,
+		VMHost,
+		@{N='Datacenter';E={Get-Datacenter -VM $_ | Select -ExpandProperty Name}},
+		@{N='Cluster';E={Get-Cluster -VM $_ | Select -ExpandProperty Name}},
+		NumCpu, MemoryGB,ProvisionedSpaceGB,
+		@{N='Path';E={
+			$current = Get-View $_.ExtensionData.Parent
+			$path = $_.Name
+			do {
+				$parent = $current
+				if($parent.Name -ne "vm"){$path =  $parent.Name + "\" + $path}
+				$current = Get-View $current.Parent
+			} while ($current.Parent -ne $null)
+			[string]::Join('\',($path.Split('\')[0..($path.Split('\').Count-2)]))           
+
+		}},
+		FolderId
+	} | foreach {
+	    #Desligando maquina
+	    $spaceHD = [math]::Round($($_.ProvisionedSpaceGB),2)
+	    Write-Host "Propriedades da maquina: `n - DataCenter: $($_.Datacenter) `n - CLUSTER: [$($_.Cluster)] `n - nCPU: [$($_.NumCpu)] `n - Memory: [$($_.MemoryGB)] `n - ProvisionedSpace: [$($spaceHD)GB] `n - Path: [$($_.Path)]"
+	    PowerOFFVM -machineName $($_.Name)
 	}
 
-    	try{
+	Disconnect-VIServer $vCenter -Confirm:$false
 
-	#$vmlistfile = "C:\Users\Administrator\Documents\vmlist.txt"
+	Write-Host "Ação de desligamento executada."
 
-		Import-Csv $vmlistfile -UseCulture | %{
-		Get-VM -Name $_.Maquina |
-		Select Name,
-			VMHost,
-			@{N='Datacenter';E={Get-Datacenter -VM $_ | Select -ExpandProperty Name}},
-			@{N='Cluster';E={Get-Cluster -VM $_ | Select -ExpandProperty Name}},
-			NumCpu, MemoryGB,ProvisionedSpaceGB,
-			@{N='Path';E={
-				$current = Get-View $_.ExtensionData.Parent
-				$path = $_.Name
-				do {
-					$parent = $current
-					if($parent.Name -ne "vm"){$path =  $parent.Name + "\" + $path}
-					$current = Get-View $current.Parent
-				} while ($current.Parent -ne $null)
-				[string]::Join('\',($path.Split('\')[0..($path.Split('\').Count-2)]))           
-
-			}},
-			FolderId
-		} | foreach {
-		    #Desligando maquina
-		    $spaceHD = [math]::Round($($_.ProvisionedSpaceGB),2)
-		    Write-Host "Propriedades da maquina: `n - DataCenter: $($_.Datacenter) `n - CLUSTER: [$($_.Cluster)] `n - nCPU: [$($_.NumCpu)] `n - Memory: [$($_.MemoryGB)] `n - ProvisionedSpace: [$($spaceHD)GB] `n - Path: [$($_.Path)]"
-		    PowerOFFVM -machineName $($_.Name)
-		}
-
-		Disconnect-VIServer $vCenter -Confirm:$false
-
-		Write-Host "Ação de desligamento executada."
-
-	}Catch {
-		Write-Error "Erro no processo de desligamento da maquina." -ErrorAction Continue
-		Write-Error $Error[1] -ErrorAction Continue
-		Exit 1
-	}
+    }Catch {
+	Write-Error "Erro no processo de desligamento da maquina." -ErrorAction Continue
+	Write-Error $Error[1] -ErrorAction Continue
+	Exit 1
+    }
 }
 
 Function PowerOFFVM{
@@ -252,4 +251,3 @@ PowerOffListVM -VIUser $vmUser -VIPwd $vmPswd -vCenter $vmCenter -vmlistfile $vm
 sendMail -Subject "Processo de desligando dos Hosts em execução" -Body "[$($data)] O processo de desligamento do DC esta em execução e todas as MV da lista de prioridade tiveram seu processo de desligamento iniciado. Iniciando processo de desligamento das MV e hosts restantes..."
 ShutDownRestantes
 ShuttingHosts
-
