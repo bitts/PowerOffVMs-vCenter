@@ -24,7 +24,7 @@ $vmList = "C:\Users\Administrator\Documents\vmlist.txt"
 #não modificar
 $data = Get-Date -Format "dd-MM-yyyy"
 
-#não implementado -> <command>  | Out-File $logs
+#não implementado -> <command>  | Out-File $logs ou | Out-File -Append $log
 $logs = "C:\Users\Administrator\Documents\desligamentoVMs-$($data).txt"
 
 Function sendMail{
