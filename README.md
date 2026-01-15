@@ -61,6 +61,44 @@ $cred = Get-Credential
 - Evite execução em clusters com DRS ativo sem planejamento
 
 
+# 🛑 PowerONVMs-vCenter
+## 🔄 Startup das VMs (ordem inversa)
+
+Também incluso um script para **ligar as VMs na ordem inversa do desligamento**, garantindo que serviços de infraestrutura estejam disponíveis antes das aplicações.
+
+### Script
+`PowerOn-VMs.ps1`
+
+### O que o script faz
+
+1. Conecta ao vCenter
+2. Lista VMs desligadas
+3. Remove VMs excluídas
+4. Inverte a ordem
+5. Liga cada VM
+6. Aguarda VMware Tools
+7. Aplica delay configurado
+
+---
+
+### ▶️ Como executar
+
+```powershell
+$cred = Get-Credential
+
+.\PowerOn-VMs.ps1 `
+  -vCenterServer vcsa01.seudominio.local `
+  -Credential $cred
+```
+
+### ⚠️ Recomendações
+
+- Garanta VMware Tools instalados
+- Use delays adequados para AD/DNS/Banco
+- Teste sempre em ambiente de homologação
+- Ajuste exclusões conforme o papel das VMs
+
+
 ## 🧩 Possíveis melhorias futuras
 
 - Seleção por tags ou pastas
